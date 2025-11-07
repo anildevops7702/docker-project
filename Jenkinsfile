@@ -10,8 +10,9 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git 'git branch: 'main', url: 'https://github.com/anildevops7702/docker-project.git'
-'
+                echo "✅ Checking out source code from GitHub (main branch)..."
+                git branch: 'main', url: 'https://github.com/anildevops7702/docker-project.git'
+                sh 'ls -l'
             }
         }
 
@@ -21,6 +22,7 @@ pipeline {
                     echo "🐳 Building Docker image..."
                     sh '''
                         docker build -t $IMAGE_NAME:$BUILD_NUMBER .
+                        docker images | grep flask-ecommerce
                     '''
                 }
             }
@@ -49,15 +51,17 @@ pipeline {
                     echo "⚙️ Deploying to Minikube..."
                     sh '''
                         export KUBECONFIG=$KUBECONFIG
-                        echo "Updating image in deployment file..."
+                        echo "🔧 Updating image version in deployment file..."
                         sed -i "s|image: .*|image: $IMAGE_NAME:$BUILD_NUMBER|" deployment.yaml
 
-                        echo "Applying Kubernetes deployment..."
+                        echo "🚀 Applying Kubernetes deployment..."
                         kubectl apply -f deployment.yaml --validate=false
 
-                        echo "Waiting for pods to be ready..."
+                        echo "⏳ Waiting for rollout to complete..."
                         kubectl rollout status deployment/flask-app --timeout=90s
-                        echo "🎉 Deployment successful! Access your app at: http://$(minikube ip):30007"
+
+                        echo "🎉 Deployment successful!"
+                        echo "🌍 Access your app at: http://$(minikube ip):30007"
                     '''
                 }
             }
@@ -65,6 +69,9 @@ pipeline {
     }
 
     post {
+        success {
+            echo "✅ All stages completed successfully!"
+        }
         failure {
             echo "❌ Deployment failed! Please check Jenkins logs."
         }
