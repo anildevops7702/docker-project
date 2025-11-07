@@ -12,7 +12,6 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo "✅ Checking out source code from GitHub..."
-                // Fetch repo (if not using Jenkins SCM config)
                 git branch: 'main', url: 'https://github.com/anildevops7702/docker-project.git'
                 sh 'ls -l'
             }
@@ -74,7 +73,12 @@ pipeline {
 
     post {
         success {
-            echo "🎉 Deployment successful! Access your app at: http://$(minikube ip):30007"
+            script {
+                echo "🎉 Deployment successful!"
+                sh '''
+                    echo "🌐 Access your app at: http://$(minikube ip):30007"
+                '''
+            }
         }
         failure {
             echo "❌ Deployment failed! Please check Jenkins logs."
