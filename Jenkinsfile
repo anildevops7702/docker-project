@@ -10,7 +10,8 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/anildevops7702/docker-project.git'
+                git 'git branch: 'main', url: 'https://github.com/anildevops7702/docker-project.git'
+'
             }
         }
 
