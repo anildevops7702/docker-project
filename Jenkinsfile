@@ -12,8 +12,8 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo "✅ Checking out source code from GitHub..."
-                // Jenkins automatically checks out your repo based on SCM config
-                sh 'git branch'
+                // Fetch repo (if not using Jenkins SCM config)
+                git branch: 'main', url: 'https://github.com/anildevops7702/docker-project.git'
                 sh 'ls -l'
             }
         }
@@ -23,7 +23,8 @@ pipeline {
                 script {
                     echo "🚀 Building Docker image..."
                     sh '''
-                        docker build -t $IMAGE_NAME:latest .
+                        docker build -t $IMAGE_NAME:${BUILD_NUMBER} .
+                        docker tag $IMAGE_NAME:${BUILD_NUMBER} $IMAGE_NAME:latest
                         docker images | grep flask-ecommerce
                     '''
                 }
@@ -37,6 +38,7 @@ pipeline {
                     withCredentials([usernamePassword(credentialsId: DOCKERHUB_CREDENTIALS, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh '''
                             echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                            docker push $IMAGE_NAME:${BUILD_NUMBER}
                             docker push $IMAGE_NAME:latest
                             docker logout
                         '''
@@ -50,17 +52,20 @@ pipeline {
                 script {
                     echo "⚙️ Deploying to Minikube..."
                     sh '''
+                        echo "Updating image in deployment file..."
+                        sed -i "s|image: .*|image: $IMAGE_NAME:${BUILD_NUMBER}|" $KUBERNETES_DEPLOYMENT
+
                         echo "Applying Kubernetes deployment..."
-                        kubectl apply -f $KUBERNETES_DEPLOYMENT
+                        kubectl apply -f $KUBERNETES_DEPLOYMENT --validate=false
 
                         echo "✅ Waiting for rollout to complete..."
                         kubectl rollout status deployment/flask-app
 
                         echo "📦 Current pods:"
-                        kubectl get pods
+                        kubectl get pods -o wide
 
                         echo "🌐 Current services:"
-                        kubectl get svc
+                        kubectl get svc -o wide
                     '''
                 }
             }
@@ -69,7 +74,7 @@ pipeline {
 
     post {
         success {
-            echo "🎉 Deployment successful!"
+            echo "🎉 Deployment successful! Access your app at: http://$(minikube ip):30007"
         }
         failure {
             echo "❌ Deployment failed! Please check Jenkins logs."
