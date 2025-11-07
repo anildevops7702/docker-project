@@ -28,6 +28,6 @@ spec:
     app: flask-app
   ports:
   - protocol: TCP
-    port: 5000          # Service port
+    port: 5000          # Service portn
     targetPort: 5000    # Container port
     nodePort: 30007     # External node port
