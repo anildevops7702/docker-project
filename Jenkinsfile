@@ -4,41 +4,37 @@ pipeline {
     environment {
         DOCKERHUB_CREDENTIALS = 'dockerhub-credentials'
         IMAGE_NAME = 'thannirudocker/flask-ecommerce'
-        KUBERNETES_DEPLOYMENT = 'deployment.yaml'
+        KUBECONFIG = '/var/lib/jenkins/.kube/config'
     }
 
     stages {
-
         stage('Checkout') {
             steps {
-                echo "✅ Checking out source code from GitHub..."
-                git branch: 'main', url: 'https://github.com/anildevops7702/docker-project.git'
-                sh 'ls -l'
+                git 'https://github.com/anildevops7702/docker-project.git'
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
-                    echo "🚀 Building Docker image..."
+                    echo "🐳 Building Docker image..."
                     sh '''
-                        docker build -t $IMAGE_NAME:${BUILD_NUMBER} .
-                        docker tag $IMAGE_NAME:${BUILD_NUMBER} $IMAGE_NAME:latest
-                        docker images | grep flask-ecommerce
+                        docker build -t $IMAGE_NAME:$BUILD_NUMBER .
                     '''
                 }
             }
         }
 
-        stage('Push to DockerHub') {
+        stage('Push to Docker Hub') {
             steps {
                 script {
-                    echo "📤 Pushing image to DockerHub..."
-                    withCredentials([usernamePassword(credentialsId: DOCKERHUB_CREDENTIALS, usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    echo "📤 Pushing image to Docker Hub..."
+                    withCredentials([usernamePassword(credentialsId: DOCKERHUB_CREDENTIALS,
+                                                      usernameVariable: 'DOCKER_USER',
+                                                      passwordVariable: 'DOCKER_PASS')]) {
                         sh '''
                             echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                            docker push $IMAGE_NAME:${BUILD_NUMBER}
-                            docker push $IMAGE_NAME:latest
+                            docker push $IMAGE_NAME:$BUILD_NUMBER
                             docker logout
                         '''
                     }
@@ -46,25 +42,21 @@ pipeline {
             }
         }
 
-        stage('Deploy to Kubernetes (Minikube)') {
+        stage('Deploy to Minikube') {
             steps {
                 script {
                     echo "⚙️ Deploying to Minikube..."
                     sh '''
+                        export KUBECONFIG=$KUBECONFIG
                         echo "Updating image in deployment file..."
-                        sed -i "s|image: .*|image: $IMAGE_NAME:${BUILD_NUMBER}|" $KUBERNETES_DEPLOYMENT
+                        sed -i "s|image: .*|image: $IMAGE_NAME:$BUILD_NUMBER|" deployment.yaml
 
                         echo "Applying Kubernetes deployment..."
-                        kubectl apply -f $KUBERNETES_DEPLOYMENT --validate=false
+                        kubectl apply -f deployment.yaml --validate=false
 
-                        echo "✅ Waiting for rollout to complete..."
-                        kubectl rollout status deployment/flask-app
-
-                        echo "📦 Current pods:"
-                        kubectl get pods -o wide
-
-                        echo "🌐 Current services:"
-                        kubectl get svc -o wide
+                        echo "Waiting for pods to be ready..."
+                        kubectl rollout status deployment/flask-app --timeout=90s
+                        echo "🎉 Deployment successful! Access your app at: http://$(minikube ip):30007"
                     '''
                 }
             }
@@ -72,14 +64,6 @@ pipeline {
     }
 
     post {
-        success {
-            script {
-                echo "🎉 Deployment successful!"
-                sh '''
-                    echo "🌐 Access your app at: http://$(minikube ip):30007"
-                '''
-            }
-        }
         failure {
             echo "❌ Deployment failed! Please check Jenkins logs."
         }
