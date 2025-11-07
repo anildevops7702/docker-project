@@ -8,9 +8,13 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
-                git 'https://github.com/anildevops7702/docker-project.git'
+                echo "✅ Checking out source code from GitHub..."
+                // Jenkins automatically checks out your repo based on SCM config
+                sh 'git branch'
+                sh 'ls -l'
             }
         }
 
@@ -18,7 +22,10 @@ pipeline {
             steps {
                 script {
                     echo "🚀 Building Docker image..."
-                    sh 'docker build -t $IMAGE_NAME:latest .'
+                    sh '''
+                        docker build -t $IMAGE_NAME:latest .
+                        docker images | grep flask-ecommerce
+                    '''
                 }
             }
         }
@@ -38,15 +45,21 @@ pipeline {
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Deploy to Kubernetes (Minikube)') {
             steps {
                 script {
                     echo "⚙️ Deploying to Minikube..."
                     sh '''
+                        echo "Applying Kubernetes deployment..."
                         kubectl apply -f $KUBERNETES_DEPLOYMENT
+
                         echo "✅ Waiting for rollout to complete..."
                         kubectl rollout status deployment/flask-app
+
+                        echo "📦 Current pods:"
                         kubectl get pods
+
+                        echo "🌐 Current services:"
                         kubectl get svc
                     '''
                 }
@@ -59,8 +72,7 @@ pipeline {
             echo "🎉 Deployment successful!"
         }
         failure {
-            echo "❌ Deployment failed!"
+            echo "❌ Deployment failed! Please check Jenkins logs."
         }
     }
 }
-
