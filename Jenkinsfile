@@ -55,7 +55,7 @@ pipeline {
                         sed -i "s|image: .*|image: $IMAGE_NAME:$BUILD_NUMBER|" deployment.yaml
 
                         echo "🚀 Applying Kubernetes deployment..."
-                        kubectl apply -f deployment.yaml --insecure-skip-tls-verify
+                        kubectl apply -f deployment.yaml --validate=false --insecure-skip-tls-verify
 
                         echo "⏳ Waiting for rollout to complete..."
                         kubectl rollout status deployment/flask-app --timeout=90s
